@@ -18,6 +18,10 @@ from livekit.plugins.turn_detector.multilingual import MultilingualModel
 
 logger = logging.getLogger("agent")
 
+# Enable basic debug logging so failures surface during local runs
+logging.basicConfig(level=logging.DEBUG)
+logger.setLevel(logging.DEBUG)
+
 load_dotenv(".env.local")
 
 
@@ -115,6 +119,32 @@ async def entrypoint(ctx: JobContext):
     # await avatar.start(session, room=ctx.room)
 
     # Start the session, which initializes the voice pipeline and warms up the models
+    try:
+        logger.debug("starting agent session and initializing voice pipeline")
+        await session.start(
+            agent=Assistant(),
+            room=ctx.room,
+            room_input_options=RoomInputOptions(
+                # For telephony applications, use `BVCTelephony` for best results
+                noise_cancellation=noise_cancellation.BVC(),
+            ),
+        )
+        logger.debug("session.start completed successfully")
+    except Exception:
+        logger.exception("failed to start agent session")
+        # Re-raise so any supervising process sees the failure
+        raise
+
+
+    # Join the room and connect to the user
+    try:
+        logger.debug("connecting to LiveKit room %s", ctx.room.name)
+        await ctx.connect()
+        logger.debug("connected to LiveKit room successfully")
+    except Exception:
+        logger.exception("failed to connect to LiveKit room")
+        raise
+
     await session.start(
         agent=Assistant(),
         room=ctx.room,
@@ -124,13 +154,8 @@ async def entrypoint(ctx: JobContext):
         ),
     )
 
-    await session.generate_reply(
-        instructions="Scranton Law Firm. This is Jessica. How can I help you today?"
-                                )
-
     # Join the room and connect to the user
     await ctx.connect()
-
-
+    
 if __name__ == "__main__":
     cli.run_app(WorkerOptions(entrypoint_fnc=entrypoint, prewarm_fnc=prewarm))
