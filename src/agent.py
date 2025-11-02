@@ -124,6 +124,10 @@ async def entrypoint(ctx: JobContext):
         ),
     )
 
+    await session.generate_reply(
+        instructions="Scranton Law Firm. This is Jessica. How can I help you today?"
+                                )
+
     # Join the room and connect to the user
     await ctx.connect()
 
